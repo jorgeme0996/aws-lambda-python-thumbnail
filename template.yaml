@@ -19,6 +19,7 @@ Globals:
       Variables:
         THUMBNAIL_SIZE: 128
         REGION_NAME: "us-west-2"
+        DYNAMODB_TABLE: !Ref ImagesDynamoDbTable
     Layers:
       - "arn:aws:lambda:us-west-2:770693421928:layer:Klayers-p38-Pillow:4"
 
@@ -28,6 +29,8 @@ Resources:
     Properties:
       Handler: app.s3_thumbnail_generator
       Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ImagesDynamoDbTable
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
@@ -39,8 +42,65 @@ Resources:
           Properties:
             Bucket: !Ref SrcBucket
             Events: s3:ObjectCreated:*
+  
+  ListThumbnails:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.s3_get_thumbnail_urls
+      Policies: 
+        - DynamoDBReadPolicy:
+            TableName: !Ref ImagesDynamoDbTable
+      Events:
+        ListThumbnailsEvent:
+          Type: Api
+          Properties:
+            Path: /images
+            Method: GET
+  
+  GeThumbnail:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.s3_get_item
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ImagesDynamoDbTable
+      Events:
+        GetThumbnailEvent:
+          Type: Api
+          Properties:
+            Path: /images/{id}
+            Method: GET
+
+  DeleteThumbnail:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.s3_delete_item
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ImagesDynamoDbTable
+      Events:
+        DeleteThumbnailEvent:
+          Type: Api
+          Properties:
+            Path: /images/{id}
+            Method: DELETE
+
   SrcBucket:
     Type: AWS::S3::Bucket
+
+  ImagesDynamoDbTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      TableName: "images-url-tables"
 
 # Outputs:
   # ThumbnailApi:
